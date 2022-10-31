@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const dotenv = require('dotenv');
 const path = require('path');
+const nunjucks = require('nunjucks');
 
 dotenv.config();
 const indexRouter = require('./routes');
@@ -11,6 +12,12 @@ const userRouter = require('./routes/user');
 
 const app = express();
 app.set('port', process.env.PORT || 3000);
+app.set ('view engine', 'html');
+
+nunjucks.configure('views', {
+  express: app,
+  watch: true,
+});
 
 app.use(morgan('dev'));
 app.use('/', express.static(path.join(__dirname, 'public')));
@@ -32,10 +39,6 @@ app.use('/', indexRouter);
 app.use('/user', userRouter);
 
 app.use((req, res, next) => {
-    res.status(404).send('Not Found');
-});
-
-app.use((req, res, next) => {
   console.log('모든 요청에 다 실행됩니다.');
   next();
 });
@@ -45,6 +48,19 @@ app.get('/', (req, res, next) => {
   next();
 }, (req, res) => {
   throw new Error('에러는 에러 처리 미들웨어로 갑니다.')
+});
+
+app.use((req, res, next) => {
+  const error = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
+  error.status = 404;
+  next(error);
+})
+
+app.use((err, req, res, next) => {
+  res.locals.message = err.message;
+  res.locals.error = process.env.NODE_ENV !== 'production' ? err : {};
+  res.status(err.status || 500);
+  res.render('error');
 });
 
 app.use((err, req, res, next) => {
